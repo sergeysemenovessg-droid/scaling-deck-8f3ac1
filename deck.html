@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Масштабирование среднего бизнеса до уровня крупного</title>
+<meta name="description" content="ESSG · Сергей Семенов — путешествие по системе координат бизнеса">
+<link rel="stylesheet" href="css/deck.css">
+<script type="importmap">
+{"imports":{
+  "three":"./vendor/three/three.module.js",
+  "three/addons/":"./vendor/three/addons/"
+}}
+</script>
+</head>
+<body>
+
+<!-- кадр 16:9. Всё внутри масштабируется целиком, поэтому композиция
+     одинакова на любой ширине, а не «плывёт» по процентам высоты -->
+<div id="fit">
+  <!-- слой 1: объёмный мир -->
+  <canvas id="gl"></canvas>
+  <!-- слой 2: контент кадра -->
+  <div id="stage" aria-live="polite"></div>
+</div>
+
+<!-- слой 3: оптика -->
+<div id="optics" aria-hidden="true">
+  <div class="bloomveil"></div>
+  <div class="shutter"></div>
+  <div class="flash"></div>
+  <div class="vignette"></div>
+  <div class="grain"></div>
+  <div class="bars"><i></i><i></i></div>
+</div>
+
+<!-- слой 4: управление -->
+<nav id="hud" aria-label="навигация по презентации">
+  <div class="rail"><div class="rail-fill"></div><div class="rail-ticks"></div></div>
+  <div class="meta">
+    <span class="axis-badge" id="axisBadge">—</span>
+    <span class="count"><b id="stepNo">01</b><s>/</s><i id="stepTotal">04</i></span>
+  </div>
+  <div class="hint" id="hint">стрелки · пробел · прокрутка</div>
+</nav>
+
+<div id="boot"><div class="boot-mark"></div><div class="boot-txt">ESSG</div></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

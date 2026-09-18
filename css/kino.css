@@ -1,0 +1,129 @@
+/* ============================================================
+   КИНО-СКРАБ: герой на видео + обычная страница под ним
+   Токены, палитра и типографика берутся из deck.css.
+   ============================================================ */
+
+body{overflow-x:hidden;overflow-y:auto;touch-action:auto;
+  /* единица кадра здесь считается от ширины окна, а не от кадра 16:9 */
+  --k:1}
+
+/* ---------- ГЕРОЙ ---------- */
+#hero{position:relative;height:1100vh}     /* 11 экранов прокрутки на пролёт */
+.hero-stage{position:sticky;top:0;height:100vh;overflow:hidden;background:var(--void)}
+
+#flight{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  /* кадр снят в 16:9; на узких экранах обрезаем по бокам, а не сжимаем */
+  background:var(--void)}
+body[data-novideo] #flight{display:none}
+
+.hero-optics{position:absolute;inset:0;pointer-events:none}
+.hero-optics .vignette{position:absolute;inset:0;
+  background:
+    radial-gradient(128% 96% at 50% 46%, transparent 48%, rgba(2,4,9,.34) 82%, rgba(2,4,9,.72) 100%),
+    linear-gradient(to bottom, rgba(2,4,9,.42), transparent 26%, transparent 72%, rgba(2,4,9,.55))}
+.hero-optics .grain{position:absolute;inset:-60px;
+  background-image:url("../media/grain.png");background-size:256px 256px;
+  opacity:.05;mix-blend-mode:overlay;animation:grainshift 1.1s steps(3) infinite}
+
+/* ---------- БИТЫ ТЕКСТА ---------- */
+#beats{position:absolute;inset:0;pointer-events:none}
+.beat{--v:0;position:absolute;left:clamp(22px,6vw,110px);right:clamp(22px,6vw,110px);
+  bottom:clamp(60px,12vh,150px);opacity:var(--v);visibility:hidden}
+.beat-in{max-width:min(54ch,72vw);display:flex;flex-direction:column;
+  gap:clamp(10px,1.1vw,20px);
+  /* бит въезжает снизу и подаётся вперёд — это движение, а не проявление */
+  transform:translate3d(0, calc((1 - var(--v)) * 40px), 0);
+  filter:blur(calc((1 - var(--v)) * 5px))}
+.beat .t-mega{font-size:clamp(34px,5.2vw,92px);line-height:1.0;letter-spacing:-.024em}
+.beat .t-h1{font-size:clamp(26px,3.3vw,58px);line-height:1.06;letter-spacing:-.018em}
+.beat .t-lead{font-size:clamp(15px,1.25vw,22px);max-width:44ch}
+/* подложка: луч за словом виден, но текст на нём держится */
+.beat-in::before{content:"";position:absolute;inset:-6% -8% -14% -6%;z-index:-1;
+  background:radial-gradient(64% 70% at 22% 60%, rgba(4,7,14,.86), rgba(4,7,14,.42) 60%, transparent 84%);
+  filter:blur(16px)}
+.beat.big .beat-in{max-width:min(20ch,62vw)}
+
+.scroll-hint{position:absolute;left:50%;bottom:clamp(18px,3vh,34px);transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  font-family:Exo2;font-size:11px;letter-spacing:.24em;text-transform:uppercase;
+  color:var(--dim);opacity:.7;animation:hintfade 3.4s ease-in-out infinite}
+.scroll-hint i{width:1px;height:34px;background:linear-gradient(var(--mint),transparent)}
+@keyframes hintfade{0%,100%{opacity:.18}45%{opacity:.7}}
+body[data-scrolled] .scroll-hint{opacity:0;transition:opacity .4s}
+
+/* ---------- СТРАНИЦА ПОД ГЕРОЕМ ---------- */
+#page{position:relative;z-index:2;background:
+  linear-gradient(180deg, var(--void), var(--bg) 8%, var(--bg) 92%, var(--void))}
+
+.sec{padding:clamp(70px,11vh,150px) clamp(22px,6vw,110px);
+  max-width:1560px;margin:0 auto}
+.sec-head{display:flex;flex-direction:column;gap:clamp(12px,1.4vw,22px);
+  margin-bottom:clamp(30px,4vh,62px);max-width:52ch}
+.sec-head.center{align-items:center;text-align:center;max-width:none}
+.sec-head .t-h1{font-size:clamp(28px,3.5vw,60px);line-height:1.06}
+.sec-head .t-hero{font-size:clamp(32px,4.6vw,84px);line-height:1.02;max-width:17em}
+
+.sec-body{display:flex;flex-direction:column;gap:clamp(26px,3vw,50px)}
+.sec-body.two{display:grid;grid-template-columns:1fr 1fr;gap:clamp(30px,4vw,76px);align-items:start}
+.col{display:flex;flex-direction:column;gap:clamp(14px,1.6vw,26px);align-items:flex-start}
+
+/* появление секции при подходе — одно движение, без карусели эффектов */
+[data-reveal]{opacity:0;transform:translateY(26px);
+  transition:opacity .8s var(--ease), transform .8s var(--ease)}
+[data-reveal][data-seen]{opacity:1;transform:none}
+
+.case{display:flex;flex-direction:column;gap:clamp(12px,1.4vw,22px)}
+.case .duo{margin-top:clamp(10px,1.2vw,18px)}
+
+/* ---------- ЭТАЖИ ---------- */
+.floors-stack{display:flex;flex-direction:column;gap:clamp(40px,6vh,90px)}
+.floor{display:grid;grid-template-columns:minmax(0,.34fr) minmax(0,1fr);
+  gap:clamp(24px,3vw,60px);align-items:start;
+  padding-top:clamp(24px,3vh,44px);border-top:1px solid rgba(191,210,224,.10)}
+.floor-head{display:flex;align-items:baseline;gap:var(--s3);grid-column:1;margin-bottom:var(--s4)}
+.floor-no{font-family:Exo2;font-weight:600;font-size:clamp(13px,1vw,17px);
+  letter-spacing:.14em;color:var(--mint)}
+.floor .bullets{grid-column:1}
+.floor .shotgrid{grid-column:2;grid-row:1 / span 2;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,1.4vw,22px)}
+.floor .shotgrid .plate{aspect-ratio:16/9;width:100%}
+.floor .shotgrid .plate img{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:contain;padding:5px}
+.floor .caption b{font-size:clamp(11px,.78vw,13px);font-family:Manrope;font-weight:700;
+  letter-spacing:0;text-transform:none;line-height:1.3}
+
+/* ---------- ФИНАЛ И КОНТАКТ ---------- */
+.sec.final{min-height:62vh;display:grid;place-content:center;text-align:center}
+.sec.contact{min-height:70vh;display:grid;place-content:center}
+.qrwrap{display:flex;flex-direction:column;align-items:center;gap:clamp(26px,3vw,46px)}
+.qrplate{width:clamp(190px,18vw,290px);height:clamp(190px,18vw,290px)}
+.tglink{text-decoration:none;border-bottom:1px solid rgba(34,245,214,.35);padding-bottom:2px}
+.tglink:hover{border-bottom-color:var(--mint)}
+
+.person.wide{width:min(260px,100%)}
+.sec .trio{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,1.4vw,22px);width:100%}
+.sec .trio.evidence{align-items:start}
+.sec figure.shot{width:100%}
+
+/* ---------- УЗКИЕ ЭКРАНЫ ---------- */
+@media (max-width:900px){
+  #hero{height:900vh}
+  .sec-body.two{grid-template-columns:1fr;gap:clamp(24px,4vw,40px)}
+  .floor{grid-template-columns:1fr}
+  .floor .shotgrid{grid-column:1;grid-row:auto;grid-template-columns:1fr 1fr}
+  .beat{bottom:clamp(90px,16vh,160px)}
+  .beat-in{max-width:none}
+}
+@media (max-width:560px){
+  .sec .trio{grid-template-columns:1fr 1fr}
+  .floor .shotgrid{grid-template-columns:1fr}
+  .duo{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){
+  .hero-optics .grain,.scroll-hint{animation:none}
+  [data-reveal]{opacity:1;transform:none}
+}
+
+.foot{padding:0 clamp(22px,6vw,110px) clamp(40px,6vh,80px);text-align:center}
+.foot a{color:var(--dim);text-decoration:none;border-bottom:1px solid rgba(191,210,224,.18)}
+.foot a:hover{color:var(--mint);border-bottom-color:var(--mint)}

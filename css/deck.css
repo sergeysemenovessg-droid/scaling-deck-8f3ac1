@@ -1,0 +1,781 @@
+/* ============================================================
+   Масштабирование среднего бизнеса до уровня крупного — ESSG
+   Дизайн-система сцены. Правило: ни одной флэтовой заливки,
+   ни одного кегля вне шкалы, ни одного цвета вне палитры.
+   ============================================================ */
+
+@font-face{font-family:Unbounded;src:url("../media/fonts/Unbounded.ttf") format("truetype-variations");
+  font-weight:200 900;font-display:block}
+@font-face{font-family:Manrope;src:url("../media/fonts/Manrope.ttf") format("truetype-variations");
+  font-weight:200 800;font-display:block}
+@font-face{font-family:Exo2;src:url("../media/fonts/Exo2.ttf") format("truetype-variations");
+  font-weight:200 900;font-display:block}
+
+:root{
+  /* --- палитра ESSG Neon. Больше двух акцентов в кадре не выводим --- */
+  --void:#04070E;
+  --bg:#070B16;
+  --surface:#0B1220;
+  --card:#16233A;
+  --mint:#22F5D6;
+  --blue:#3D7DFF;
+  --teal:#0C3336;
+  --magenta:#FF2E88;
+  --ink:#FFFFFF;
+  --muted:#BFD2E0;
+  --dim:#7E93A8;
+
+  /* --- единица кадра. --k ставит main.js: ширина кадра / 1920.
+         Все кегли и отступы считаются от неё, поэтому композиция
+         на любом экране одна и та же, просто крупнее или мельче. --- */
+  --k: 1;
+
+  /* --- типографическая шкала, шаг 1.28, единственный источник кеглей --- */
+  --t-mega: calc(var(--k) * 84px);
+  --t-hero: calc(var(--k) * 66px);
+  --t-h1:   calc(var(--k) * 52px);
+  --t-h2:   calc(var(--k) * 41px);
+  --t-h3:   calc(var(--k) * 31px);
+  --t-lead: calc(var(--k) * 23px);
+  --t-body: calc(var(--k) * 18px);
+  --t-label:calc(var(--k) * 13px);
+  --t-micro:calc(var(--k) * 11px);
+
+  /* --- ритм отступов, шаг 1.5. Тесных отступов не бывает --- */
+  --s1:calc(var(--k) * 6px);  --s2:calc(var(--k) * 10px);
+  --s3:calc(var(--k) * 15px); --s4:calc(var(--k) * 22px);
+  --s5:calc(var(--k) * 33px); --s6:calc(var(--k) * 50px);
+  --s7:calc(var(--k) * 74px); --s8:calc(var(--k) * 112px);
+  --s9:calc(var(--k) * 168px);
+  --gutter:calc(var(--k) * 104px);
+
+  /* --- тени: всегда минимум три слоя, иначе плоско --- */
+  --lift:
+     0 1px 0 rgba(255,255,255,.055) inset,
+     0 -22px 44px -30px rgba(34,245,214,.30) inset,
+     0 2px 5px rgba(0,0,0,.50),
+     0 14px 34px -12px rgba(0,0,0,.62),
+     0 44px 90px -40px rgba(0,0,0,.80);
+  --lift-hi:
+     0 1px 0 rgba(255,255,255,.085) inset,
+     0 -26px 50px -30px rgba(34,245,214,.40) inset,
+     0 3px 8px rgba(0,0,0,.52),
+     0 20px 48px -14px rgba(0,0,0,.66),
+     0 64px 130px -50px rgba(0,0,0,.85);
+
+  --ease:cubic-bezier(.16,1,.3,1);
+  --ease-io:cubic-bezier(.66,0,.34,1);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+html{background:var(--void)}
+body{
+  font-family:Manrope,system-ui,sans-serif;
+  color:var(--ink);
+  background:var(--void);
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  font-variant-numeric:tabular-nums;
+  touch-action:none;
+  cursor:default;
+}
+::selection{background:rgba(34,245,214,.26)}
+
+/* ================= слои ================= */
+
+#stage .anchor{position:absolute;left:0;top:0;will-change:transform,opacity}
+#stage .part{transform-origin:50% 50%}
+#stage .part[data-pad="right"]{transform-origin:100% 50%;padding-right:clamp(14px,1.2vw,26px)}
+#stage .part[data-pad="left"]{transform-origin:0% 50%;padding-left:clamp(14px,1.2vw,26px)}
+
+#optics{position:fixed;inset:0;z-index:5;pointer-events:none}
+/* мягкая засветка от неона — «воздух» вместо пустоты */
+#optics .bloomveil{position:absolute;inset:-10%;
+  background:
+    radial-gradient(42% 34% at 50% 58%, rgba(34,245,214,.075), transparent 70%),
+    radial-gradient(60% 46% at 16% 18%, rgba(61,125,255,.055), transparent 72%);
+  mix-blend-mode:screen;opacity:.9}
+#optics .vignette{position:absolute;inset:0;
+  background:
+    radial-gradient(128% 96% at 50% 44%, transparent 50%, rgba(2,4,9,.26) 82%, rgba(2,4,9,.62) 100%),
+    linear-gradient(to bottom, rgba(2,4,9,.30), transparent 20%, transparent 86%, rgba(2,4,9,.30))}
+#optics .grain{position:absolute;inset:-60px;
+  background-image:url("../media/grain.png");background-size:256px 256px;
+  opacity:.055;mix-blend-mode:overlay;animation:grainshift 1.1s steps(3) infinite}
+@keyframes grainshift{0%{transform:translate3d(0,0,0)}33%{transform:translate3d(-14px,9px,0)}
+  66%{transform:translate3d(11px,-12px,0)}100%{transform:translate3d(0,0,0)}}
+/* кинематографические поля — включаются только на ключевых кадрах */
+#optics .bars i{position:absolute;left:0;right:0;height:0;background:var(--void);
+  transition:height .9s var(--ease);box-shadow:0 0 30px rgba(0,0,0,.9)}
+#optics .bars i:first-child{top:0}
+#optics .bars i:last-child{bottom:0}
+body[data-cine="1"] #optics .bars i{height:5.2vh}
+
+/* ================= HUD ================= */
+#hud{position:fixed;left:var(--gutter);right:var(--gutter);bottom:clamp(16px,2.4vh,30px);
+  z-index:6;display:grid;grid-template-columns:1fr auto;gap:var(--s3) var(--s5);align-items:center}
+#hud .rail{grid-column:1/-1;position:relative;height:2px;border-radius:2px;
+  background:linear-gradient(90deg, rgba(191,210,224,.10), rgba(191,210,224,.16), rgba(191,210,224,.08))}
+#hud .rail-fill{position:absolute;left:0;top:-.5px;height:3px;width:0;border-radius:3px;
+  background:linear-gradient(90deg, rgba(34,245,214,.35), var(--mint));
+  box-shadow:0 0 12px rgba(34,245,214,.65), 0 0 34px rgba(34,245,214,.28);
+  transition:width .18s linear}
+#hud .rail-ticks{position:absolute;inset:0}
+#hud .rail-ticks b{position:absolute;top:-3px;width:1px;height:8px;background:rgba(191,210,224,.22)}
+#hud .rail-ticks b.on{background:var(--mint);box-shadow:0 0 8px rgba(34,245,214,.8)}
+#hud .meta{display:flex;align-items:center;gap:var(--s3)}
+#hud .axis-badge{font-family:Exo2;font-weight:600;font-size:var(--t-micro);letter-spacing:.24em;
+  text-transform:uppercase;color:var(--mint);padding:5px 10px 4px;border-radius:999px;
+  border:1px solid rgba(34,245,214,.28);background:rgba(34,245,214,.055);
+  box-shadow:0 0 18px -6px rgba(34,245,214,.5) inset}
+#hud .count{font-family:Exo2;font-size:var(--t-label);letter-spacing:.1em;color:var(--dim)}
+#hud .count b{color:var(--ink);font-weight:600}
+#hud .count s{text-decoration:none;opacity:.4;margin:0 3px}
+#hud .hint{grid-column:1;font-size:var(--t-micro);letter-spacing:.2em;text-transform:uppercase;
+  color:var(--dim);opacity:.55;transition:opacity .5s var(--ease)}
+body[data-moved="1"] #hud .hint{opacity:0}
+
+/* ================= загрузка ================= */
+#boot{position:fixed;inset:0;z-index:20;background:var(--void);
+  display:grid;place-content:center;gap:var(--s4);justify-items:center;
+  transition:opacity .8s var(--ease), visibility .8s}
+body[data-ready="1"] #boot{opacity:0;visibility:hidden}
+#boot .boot-mark{width:34px;height:34px;border-radius:50%;
+  border:1px solid rgba(34,245,214,.22);border-top-color:var(--mint);
+  animation:spin 1s linear infinite;box-shadow:0 0 26px -6px rgba(34,245,214,.6)}
+@keyframes spin{to{transform:rotate(360deg)}}
+#boot .boot-txt{font-family:Unbounded;font-weight:300;font-size:var(--t-label);
+  letter-spacing:.52em;color:var(--dim);text-indent:.52em}
+
+/* ============================================================
+   ТИПОГРАФИКА КОНТЕНТА
+   ============================================================ */
+.t-kicker{font-family:Exo2;font-weight:500;font-size:var(--t-label);letter-spacing:.32em;
+  text-transform:uppercase;color:var(--mint);display:flex;align-items:center;gap:var(--s3)}
+.t-kicker::before{content:"";width:clamp(18px,2.2vw,44px);height:1px;flex:none;
+  background:linear-gradient(90deg, transparent, var(--mint));box-shadow:0 0 8px rgba(34,245,214,.7)}
+
+.t-mega{font-family:Unbounded;font-weight:600;font-size:var(--t-mega);line-height:.98;
+  letter-spacing:-.024em;text-wrap:balance}
+.t-hero{font-family:Unbounded;font-weight:600;font-size:var(--t-hero);line-height:1.02;
+  letter-spacing:-.02em;text-wrap:balance}
+.t-h1{font-family:Unbounded;font-weight:500;font-size:var(--t-h1);line-height:1.08;letter-spacing:-.016em}
+.t-h2{font-family:Unbounded;font-weight:500;font-size:var(--t-h2);line-height:1.14;letter-spacing:-.012em}
+.t-h3{font-family:Manrope;font-weight:700;font-size:var(--t-h3);line-height:1.24;letter-spacing:-.008em}
+.t-lead{font-family:Manrope;font-weight:400;font-size:var(--t-lead);line-height:1.52;color:var(--muted)}
+.t-body{font-family:Manrope;font-weight:400;font-size:var(--t-body);line-height:1.62;color:var(--muted)}
+.t-label{font-family:Exo2;font-weight:500;font-size:var(--t-label);letter-spacing:.2em;
+  text-transform:uppercase;color:var(--dim)}
+.t-micro{font-family:Exo2;font-weight:500;font-size:var(--t-micro);letter-spacing:.22em;
+  text-transform:uppercase;color:var(--dim)}
+.mint{color:var(--mint)}
+.em{color:var(--ink);font-weight:600}
+/* цитата владельца — только тут допускается кавычка-ёлочка крупно */
+.t-quote{font-family:Manrope;font-weight:500;font-size:var(--t-h3);line-height:1.38;color:var(--ink)}
+.t-quote i{font-style:normal;color:var(--mint)}
+
+/* перевод строки по словам без висячих предлогов */
+.nb{white-space:nowrap}
+
+/* ============================================================
+   ПОВЕРХНОСТИ
+   ============================================================ */
+/* стекло: градиент + внутренний блик + кант, затухающий книзу + внешнее свечение */
+.glass{position:relative;border-radius:clamp(14px,1.1vw,22px);
+  background:
+    linear-gradient(168deg, rgba(31,48,78,.92) 0%, rgba(14,23,40,.94) 58%, rgba(9,15,27,.96) 100%);
+  box-shadow:var(--lift);
+  backdrop-filter:blur(14px) saturate(1.1);
+  -webkit-backdrop-filter:blur(14px) saturate(1.1);
+  isolation:isolate}
+.glass::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;
+  background:linear-gradient(180deg, rgba(34,245,214,.62), rgba(34,245,214,.16) 42%, rgba(34,245,214,0) 92%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite:exclude;pointer-events:none}
+/* блик по верхней кромке */
+.glass::after{content:"";position:absolute;left:6%;right:6%;top:2px;height:38%;border-radius:inherit;
+  background:linear-gradient(180deg, rgba(255,255,255,.075), transparent);
+  filter:blur(6px);pointer-events:none}
+.glass.blue::before{background:linear-gradient(180deg, rgba(61,125,255,.66), rgba(61,125,255,.16) 42%, rgba(61,125,255,0) 92%)}
+.glass.blue{box-shadow:
+     0 1px 0 rgba(255,255,255,.055) inset,
+     0 -22px 44px -30px rgba(61,125,255,.34) inset,
+     0 2px 5px rgba(0,0,0,.50), 0 14px 34px -12px rgba(0,0,0,.62), 0 44px 90px -40px rgba(0,0,0,.80)}
+.glass.mag::before{background:linear-gradient(180deg, rgba(255,46,136,.62), rgba(255,46,136,.14) 42%, rgba(255,46,136,0) 92%)}
+.glass.mag{box-shadow:
+     0 1px 0 rgba(255,255,255,.055) inset,
+     0 -22px 44px -30px rgba(255,46,136,.32) inset,
+     0 2px 5px rgba(0,0,0,.50), 0 14px 34px -12px rgba(0,0,0,.62), 0 44px 90px -40px rgba(0,0,0,.80)}
+
+/* узел схемы — плашка на оси */
+.node{display:inline-flex;align-items:center;gap:var(--s2);
+  padding:clamp(9px,.72vw,15px) clamp(16px,1.3vw,28px);
+  font-family:Unbounded;font-weight:500;font-size:var(--t-h3);letter-spacing:-.008em;
+  white-space:nowrap}
+.node .dot{width:6px;height:6px;border-radius:50%;background:var(--mint);flex:none;
+  box-shadow:0 0 10px var(--mint), 0 0 26px rgba(34,245,214,.55)}
+.node.blue .dot{background:var(--blue);box-shadow:0 0 10px var(--blue),0 0 26px rgba(61,125,255,.5)}
+.node.mag .dot{background:var(--magenta);box-shadow:0 0 10px var(--magenta),0 0 26px rgba(255,46,136,.5)}
+
+/* развилка «или» — ромб между узлами */
+.vs{width:clamp(30px,2.3vw,44px);height:clamp(30px,2.3vw,44px);display:grid;place-content:center;
+  transform:rotate(45deg);border-radius:6px;
+  background:linear-gradient(150deg, rgba(255,46,136,.22), rgba(20,12,24,.9));
+  border:1px solid rgba(255,46,136,.5);
+  box-shadow:0 0 26px -6px rgba(255,46,136,.75), 0 10px 26px -12px rgba(0,0,0,.8)}
+.vs span{transform:rotate(-45deg);font-family:Exo2;font-weight:700;font-size:var(--t-micro);
+  letter-spacing:.06em;color:#FFD9E8}
+
+/* ============================================================
+   ОПРАВА ФОТОГРАФИИ — текст никогда не лежит на фото
+   ============================================================ */
+.plate{position:relative;border-radius:clamp(12px,.95vw,18px);overflow:hidden;
+  background:var(--surface);
+  box-shadow:var(--lift-hi)}
+.plate img{display:block;width:100%;height:100%;object-fit:cover;
+  filter:saturate(.92) contrast(1.03)}
+/* фаска: светлая кромка сверху-слева, глухая снизу-справа */
+.plate .bevel{position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.12) inset,
+    0 0 0 1px rgba(255,255,255,.055) inset,
+    0 -70px 90px -70px rgba(4,7,14,.95) inset}
+/* контровой блик по одному ребру — главный признак «дорого» на фото */
+.plate .rim{position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(112deg, rgba(34,245,214,.16), transparent 26%, transparent 76%, rgba(61,125,255,.12));
+  mix-blend-mode:screen}
+.plate.cut{background:transparent;box-shadow:none}
+.plate.cut img{object-fit:contain;filter:drop-shadow(0 34px 44px rgba(0,0,0,.72))}
+.plate.cut .bevel,.plate.cut .rim{display:none}
+
+/* подпись к фото — отдельный материал под кадром, не поверх */
+.caption{display:flex;flex-direction:column;gap:2px;padding-top:var(--s3)}
+.caption b{font-family:Manrope;font-weight:700;font-size:var(--t-body);letter-spacing:.002em;color:var(--ink)}
+.caption span{font-family:Exo2;font-weight:500;font-size:var(--t-micro);letter-spacing:.2em;
+  text-transform:uppercase;color:var(--dim)}
+.caption.on-side{padding-top:0}
+
+/* портретная карточка человека */
+.person{display:flex;flex-direction:column;gap:0;width:100%}
+.person .frame{position:relative;border-radius:clamp(12px,.95vw,18px);overflow:hidden;
+  aspect-ratio:3/4;
+  background:
+    radial-gradient(120% 90% at 50% 8%, rgba(31,48,78,.75), rgba(8,13,24,.96) 72%);
+  box-shadow:var(--lift)}
+.person .frame img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 12%}
+.person .frame .bevel{position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  box-shadow:0 0 0 1px rgba(255,255,255,.06) inset, 0 -80px 80px -60px rgba(4,7,14,.9) inset}
+.person .frame .glowline{position:absolute;left:0;right:0;bottom:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--mint),transparent);opacity:.55;
+  box-shadow:0 0 12px rgba(34,245,214,.7)}
+.person .who{padding-top:var(--s3);display:flex;flex-direction:column;gap:3px}
+.person .who b{font-family:Manrope;font-weight:700;font-size:var(--t-body);color:var(--ink)}
+.person .who span{font-family:Manrope;font-weight:400;font-size:var(--t-micro);letter-spacing:.02em;
+  text-transform:none;color:var(--dim);line-height:1.4}
+
+/* логотип: всегда в собственной оправе, не «шлёпнутый» на фон */
+.logomark{display:inline-flex;align-items:center;gap:var(--s3);
+  padding:var(--s2) var(--s3);border-radius:10px;
+  background:linear-gradient(170deg, rgba(255,255,255,.055), rgba(255,255,255,.015));
+  border:1px solid rgba(255,255,255,.075);
+  box-shadow:0 10px 30px -18px rgba(0,0,0,.9)}
+.logomark img{height:clamp(17px,1.35vw,26px);width:auto;display:block;
+  filter:brightness(1.35) saturate(.85)}
+.logomark.bare{background:none;border:0;box-shadow:none;padding:0}
+
+/* список тезисов — маркер чертится, а не появляется точкой */
+.bullets{display:flex;flex-direction:column;gap:var(--s3)}
+.bullets li{list-style:none;display:grid;grid-template-columns:auto 1fr;gap:var(--s3);align-items:baseline}
+.bullets li .mk{width:clamp(14px,1.1vw,22px);height:1px;background:linear-gradient(90deg,var(--mint),transparent);
+  box-shadow:0 0 8px rgba(34,245,214,.6);transform-origin:left center;margin-top:.72em}
+.bullets li em{font-style:normal;color:var(--ink);font-weight:600}
+
+/* мелкая техническая пометка — для «уточнить у владельца» не используется в показе */
+.tag{font-family:Exo2;font-size:var(--t-micro);letter-spacing:.18em;text-transform:uppercase;
+  color:var(--mint);opacity:.75}
+
+/* ============================================================
+   РАСКЛАДКИ СЦЕН
+   ============================================================ */
+.blk{position:relative}
+.stack{display:flex;flex-direction:column;align-items:flex-start}
+.gap3{gap:var(--s3)} .gap4{gap:var(--s4)} .gap5{gap:var(--s5)} .gap6{gap:var(--s6)}
+
+/* обложка */
+.cover{display:grid;grid-template-columns:minmax(0,1.32fr) minmax(0,.68fr);
+  gap:var(--s7);align-items:center;width:min(1560px, 84vw)}
+.who-line{display:flex;flex-direction:column;align-items:flex-start;gap:var(--s1)}
+
+/* «или» — две чаши весов */
+.fork{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+  gap:clamp(14px,1.5vw,34px);width:min(1080px,72vw)}
+.fork .side{display:flex;flex-direction:column;gap:var(--s3)}
+.fork .side.r{align-items:flex-end;text-align:right}
+
+/* три персоны в ряд */
+.trio{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(16px,1.8vw,38px);
+  width:min(1020px,66vw)}
+
+/* ============================================================
+   БРЕЙКПОИНТЫ. Проверяется на 1920 / 1440 / 1280 / 834 / 390
+   ============================================================ */
+
+
+
+@media (prefers-reduced-motion:reduce){
+  #optics .grain{animation:none}
+}
+
+/* ============================================================
+   РАСКРЫТИЕ ПО ПРОГРЕССУ
+   --rv ставит main.js: 0 — ещё нет, 1 — на месте.
+   Никакого transition: значение приходит каждый кадр,
+   иначе скраб назад «догоняет» и дёргается.
+   ============================================================ */
+[data-r]{
+  --rv:0;
+  opacity:var(--rv);
+  transform:translate3d(0, calc((1 - var(--rv)) * 26px), 0);
+  will-change:transform,opacity,filter;
+}
+/* заголовок выходит из-за собственной кромки — «печать», а не всплытие */
+h1[data-r],h2[data-r]{
+  clip-path:inset(-12% -30% calc((1 - var(--rv)) * 112%) -8%);
+  transform:translate3d(0, calc((1 - var(--rv)) * 14px), 0);
+  opacity:1;
+}
+/* маркер списка чертится слева вправо */
+.bullets li .mk{transform:scaleX(var(--rv, 1))}
+
+/* ============================================================
+   ЭЛЕМЕНТЫ СЦЕН 2–3
+   ============================================================ */
+/* знак вопроса: та же ромбовидная форма, что «или», но пурпурная */
+.q-mark{display:flex;align-items:center;gap:var(--s4);margin-top:var(--s2)}
+.vs.mag-q{background:linear-gradient(150deg, rgba(255,46,136,.30), rgba(24,10,20,.92));
+  border-color:rgba(255,46,136,.62);
+  box-shadow:0 0 34px -6px rgba(255,46,136,.85), 0 12px 30px -14px rgba(0,0,0,.85)}
+.vs.mag-q span{font-size:var(--t-body);color:#FFE3EE;font-weight:700}
+
+/* фото-вставка с подписью */
+figure.shot{width:100%;margin:0}
+figure.shot .plate{width:100%}
+
+/* глобальное и локальное рядом: слева одна персона, справа три */
+.two-col{display:grid;grid-template-columns:minmax(0,.34fr) minmax(0,1fr);
+  gap:clamp(24px,3vw,72px);align-items:start;width:100%;margin-top:var(--s2)}
+.two-col .global-col{display:flex;flex-direction:column;gap:var(--s4);align-items:flex-start;margin:0}
+.two-col .global-col .person{width:min(208px,100%)}
+.two-col .local-col .trio{width:100%}
+.two-col .local-col .person .frame{aspect-ratio:3/4}
+
+
+
+
+/* ============================================================
+   ПОДПИСИ УЗЛОВ ОСИ
+   ============================================================ */
+.axlabel{pointer-events:none}
+.axlabel b{display:grid;place-content:center;font-family:Exo2;font-weight:600;
+  letter-spacing:.06em;color:var(--mint);
+  text-shadow:0 0 14px rgba(34,245,214,.75), 0 0 40px rgba(34,245,214,.35)}
+.ax-node b{width:26px;height:26px;font-size:13px;border-radius:50%;
+  border:1px solid rgba(34,245,214,.35);background:rgba(4,7,14,.72);
+  box-shadow:0 0 22px -6px rgba(34,245,214,.8)}
+.ax-tip b{font-size:22px;font-weight:700}
+
+/* ============================================================
+   ГЛУБИНА ВНУТРИ ФОТО
+   Яркий кадр в тёмной сцене пробивает дыру — гасим края изнутри
+   ============================================================ */
+.plate .deep{position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:
+    radial-gradient(112% 86% at 50% 42%, transparent 38%, rgba(4,7,14,.30) 76%, rgba(4,7,14,.62) 100%),
+    linear-gradient(to bottom, rgba(4,7,14,.20), transparent 26%, transparent 66%, rgba(4,7,14,.48));
+  mix-blend-mode:multiply}
+
+/* узел развилки читается как объект, а не как кнопка */
+.node{border-radius:999px}
+.node.glass::after{left:10%;right:10%;height:46%}
+
+/* ============================================================
+   ЭКРАННЫЙ СЛАЙД
+   Раскладка в процентах кадра — предсказуема на любой ширине.
+   Объём даёт мир за ней, а не смещение самих блоков.
+   ============================================================ */
+#stage .slide{position:absolute;inset:0;will-change:transform,opacity,filter;
+  transform-origin:50% 50%}
+#stage .slide .pin{position:absolute;
+  transform:translate(var(--tx,-50%), var(--ty,-50%)) translate3d(var(--px,0), var(--py,0), 0);
+  will-change:transform}
+
+/* ---- обложка ---- */
+.slide[data-layout="cover"] .pin[data-w="cover-text"]{width:calc(var(--k) * 900px)}
+.slide[data-layout="cover"] .pin[data-w="cover-portrait"]{width:calc(var(--k) * 320px)}
+
+/* ---- система координат ---- */
+.slide[data-layout="axes"] .pin[data-w="axes-text"]{width:calc(var(--k) * 760px)}
+
+/* ---- развилка ---- */
+.slide[data-layout="fork"] .fork-side{display:flex;flex-direction:column;
+  gap:var(--s3);width:calc(var(--k) * 320px)}
+.slide[data-layout="fork"] .fork-side.l{align-items:flex-end;text-align:right}
+.slide[data-layout="fork"] .fork-side.r{align-items:flex-start;text-align:left}
+.slide[data-layout="fork"] .pin[data-w="fork-shot"]{width:min(26vw,420px)}
+.slide[data-layout="fork"] .pin[data-w="trend-global"]{width:calc(var(--k) * 132px)}
+.slide[data-layout="fork"] .pin[data-w="trend-local"]{width:calc(var(--k) * 420px)}
+.slide[data-layout="fork"] .q-mark{white-space:nowrap}
+
+/* на узком экране развилка складывается, а подписи перестают
+   цепляться к ветвям — геометрия уходит на второй план */
+
+
+
+/* ============================================================
+   КРУГ 4: читаемость мелких, но смысловых элементов
+   ============================================================ */
+/* «или» — это точка выбора, она обязана читаться, а не прятаться */
+.vs{width:clamp(38px,2.9vw,56px);height:clamp(38px,2.9vw,56px);
+  background:linear-gradient(150deg, rgba(255,46,136,.30), rgba(22,12,22,.94));
+  border-color:rgba(255,46,136,.62);
+  box-shadow:0 0 38px -8px rgba(255,46,136,.85), 0 0 90px -30px rgba(255,46,136,.5),
+             0 12px 30px -14px rgba(0,0,0,.88)}
+.vs span{font-size:var(--t-label);color:#FFE8F1;letter-spacing:.04em}
+.vs.mag-q span{font-size:var(--t-h3);line-height:1}
+
+/* логотип партнёра рядом с портретом — не микроскопическая наклейка */
+.logomark img{height:clamp(22px,1.7vw,32px)}
+.person + .logomark{align-self:center}
+
+/* подпись под фото не должна попадать в свечение оси */
+figure.shot .caption{padding-top:var(--s2)}
+
+/* доказательство под осью: портреты чуть плотнее, подписи в одну строку */
+.slide[data-layout="fork"] .pin[data-w="trend-local"] .trio{gap:clamp(10px,1.1vw,20px)}
+.slide[data-layout="fork"] .person .who b{font-size:var(--t-label);
+  font-family:Manrope;text-transform:none;letter-spacing:0}
+.slide[data-layout="fork"] .person .who span{font-size:var(--t-micro);letter-spacing:.02em}
+
+/* ============================================================
+   КРУГ 5
+   ============================================================ */
+/* вопрос собирается в столбик — так он влезает в просвет между ветвями
+   и ни одна строка не ложится поперёк луча */
+.q-mark{flex-direction:column;align-items:center;gap:var(--s3);
+  text-align:center;max-width:calc(var(--k) * 420px);white-space:normal}
+.slide[data-layout="fork"] .q-mark{white-space:normal}
+.q-mark .t-quote{text-wrap:balance}
+
+/* фото с проектора малоконтрастно: меньше внутреннего затемнения,
+   зато у оправы своё свечение — кадр перестаёт тонуть в тёмном */
+figure.shot .plate .deep{
+  background:
+    radial-gradient(118% 92% at 50% 42%, transparent 52%, rgba(4,7,14,.16) 84%, rgba(4,7,14,.36) 100%);
+  mix-blend-mode:multiply}
+figure.shot .plate{
+  box-shadow:
+     0 1px 0 rgba(255,255,255,.10) inset,
+     0 0 0 1px rgba(34,245,214,.14) inset,
+     0 0 48px -14px rgba(34,245,214,.34),
+     0 3px 8px rgba(0,0,0,.52),
+     0 22px 52px -14px rgba(0,0,0,.66),
+     0 70px 140px -50px rgba(0,0,0,.85)}
+figure.shot .plate img{filter:saturate(.95) contrast(1.10) brightness(1.06)}
+.slide[data-layout="fork"] .pin[data-w="fork-shot"]{width:calc(var(--k) * 400px)}
+
+/* подпись персоны в строку с логотипом */
+.person .who.row{display:flex;align-items:center;gap:var(--s3);padding-top:var(--s3)}
+.person .who.row .names{display:flex;flex-direction:column;gap:2px;min-width:0}
+.person .who.row .names b{font-family:Manrope;font-weight:700;font-size:var(--t-label);
+  text-transform:none;letter-spacing:0;color:var(--ink)}
+.person .who.row .names span{font-size:var(--t-micro);letter-spacing:.02em;color:var(--dim)}
+.person .who.row .logomark img{height:clamp(20px,1.5vw,28px)}
+
+/* ============================================================
+   КАДР 16:9
+   Вписывается в окно целиком; всё внутри масштабируется вместе
+   с ним. За его пределами — та же пустота цвета сцены, поэтому
+   поля не читаются как чёрные полосы.
+   ============================================================ */
+#fit{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(100vw, calc(100vh * 16 / 9));
+  height:min(100vh, calc(100vw * 9 / 16));
+  overflow:hidden;z-index:1}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1}
+#stage{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+
+/* ---------- портрет телефона ----------
+   кадр 16:9 здесь был бы высотой в 220 px, читать нечего.
+   Поэтому слайд разворачивается в вертикальный столбик,
+   а объёмный мир остаётся фоном за ним. */
+body[data-portrait="1"] #fit{width:100vw;height:100vh}
+body[data-portrait="1"] #stage .slide{
+  display:flex;flex-direction:column;justify-content:center;
+  gap:var(--s4);
+  padding:calc(var(--k) * 92px) var(--gutter) calc(var(--k) * 132px);
+  overflow:hidden}
+body[data-portrait="1"] #stage .pin{
+  position:static !important;transform:none !important;width:100% !important}
+body[data-portrait="1"] .fork-side{
+  width:100% !important;align-items:flex-start !important;text-align:left !important}
+body[data-portrait="1"] .q-mark{
+  flex-direction:row;align-items:center;text-align:left;max-width:100%;align-self:flex-start}
+body[data-portrait="1"] .trio{grid-template-columns:repeat(3,1fr);gap:var(--s3);width:100%}
+body[data-portrait="1"] .trio > *:last-child{grid-column:auto;max-width:none}
+body[data-portrait="1"] .slide[data-layout="cover"]{justify-content:center}
+body[data-portrait="1"] .slide[data-layout="cover"] .pin[data-w="cover-portrait"]{
+  width:calc(var(--k) * 190px) !important;order:-1}
+body[data-portrait="1"] .pin[data-w="fork-shot"],
+body[data-portrait="1"] .pin[data-w="trend-global"],
+body[data-portrait="1"] .pin[data-w="trend-local"]{width:100% !important}
+body[data-portrait="1"] .pin[data-w="trend-global"] .person{width:calc(var(--k) * 150px)}
+body[data-portrait="1"] #optics .bars i{height:0}
+
+/* ============================================================
+   .flow — содержимое слайда
+   В альбоме прозрачная подложка под абсолютные штыри.
+   В портрете — вертикальный столбик, который JS ужимает до кадра.
+   ============================================================ */
+#stage .flow{position:absolute;inset:0;transform-origin:50% 50%;--fitk:1;
+  /* общий предохранитель: если композиция выше отведённой области,
+     слайд ужимается целиком, а не вылезает на полосу прогресса */
+  transform:translateY(var(--fity,0)) scale(var(--fitk,1))}
+body[data-portrait="1"] #stage .flow{
+  position:absolute;left:0;right:0;top:44%;bottom:auto;
+  /* масштаб приходит из JS отдельной переменной, чтобы не затирать центрирование */
+  transform:translateY(-50%) scale(var(--fitk,1));transform-origin:50% 50%;
+  display:flex;flex-direction:column;justify-content:center;gap:var(--s4);
+  padding:0 var(--gutter)}
+body[data-portrait="1"] #stage .slide{display:block;padding:0}
+
+/* ============================================================
+   ПОРТРЕТ: поля и HUD
+   Поле кадра 104 px эталона в портрете съедало половину ширины —
+   текст вставал в колонку 200 px. Здесь своё поле и свой кегль HUD.
+   ============================================================ */
+body[data-portrait="1"]{--gutter:calc(var(--k) * 24px)}
+body[data-portrait="1"] #hud{left:calc(var(--k) * 24px);right:calc(var(--k) * 24px);
+  bottom:calc(var(--k) * 16px);gap:calc(var(--k) * 12px)}
+body[data-portrait="1"] #hud .axis-badge{font-size:calc(var(--k) * 8px);letter-spacing:.16em;
+  white-space:nowrap;padding:calc(var(--k)*4px) calc(var(--k)*8px)}
+body[data-portrait="1"] #hud .count{font-size:calc(var(--k) * 10px)}
+body[data-portrait="1"] #hud .hint{display:none}
+body[data-portrait="1"] .q-mark{gap:var(--s3)}
+body[data-portrait="1"] .q-mark .vs.mag-q{flex:none}
+body[data-portrait="1"] .trio{gap:var(--s2)}
+body[data-portrait="1"] .person .who b{font-size:calc(var(--k) * 11px)}
+body[data-portrait="1"] .person .who span{font-size:calc(var(--k) * 9px)}
+
+/* ============================================================
+   ОПТИКА ПЕРЕХОДОВ
+   Вспышка на врезе и неоновая шторка, которая проходит по кадру
+   и меняет содержимое ровно там, где прошла.
+   ============================================================ */
+#optics .flash{position:absolute;inset:0;opacity:0;pointer-events:none;
+  background:radial-gradient(70% 55% at 50% 50%, rgba(214,255,250,.85), rgba(34,245,214,.25) 45%, transparent 72%);
+  mix-blend-mode:screen}
+#optics .shutter{--sw:-20%;position:absolute;inset:-6% -10%;opacity:0;pointer-events:none;
+  background:linear-gradient(100deg,
+      transparent calc(var(--sw) - 16%),
+      rgba(34,245,214,.10) calc(var(--sw) - 7%),
+      rgba(214,255,250,.92) var(--sw),
+      rgba(34,245,214,.10) calc(var(--sw) + 7%),
+      transparent calc(var(--sw) + 16%));
+  mix-blend-mode:screen;filter:blur(calc(var(--k) * 1px))}
+
+/* ============================================================
+   ПОДПИСИ ОБЪЕКТОВ В МИРЕ
+   Едут вместе с камерой при любом облёте — поэтому им нужен
+   собственный слой и свой якорь, а не место в раскладке кадра.
+   ============================================================ */
+#stage .wmark{position:absolute;left:0;top:0;will-change:transform,opacity;pointer-events:none}
+#stage .wmark.right{text-align:right}
+#stage .wmark.left{text-align:left}
+#stage .wmark.center{text-align:center}
+.wnode{display:flex;flex-direction:column;gap:var(--s3)}
+#stage .wmark.right .wnode{align-items:flex-end}
+#stage .wmark.left .wnode{align-items:flex-start}
+.wnode.center{align-items:center}
+.wnode p{margin:0}
+
+/* подпись этажа — прикреплена к самому этажу, а не к углу кадра */
+.floorlabel{display:inline-flex;flex-direction:column;gap:2px;align-items:center;
+  padding:calc(var(--k)*9px) calc(var(--k)*18px);border-radius:999px;
+  background:linear-gradient(168deg, rgba(31,48,78,.90), rgba(9,15,27,.94));
+  border:1px solid rgba(34,245,214,.30);
+  box-shadow:0 0 34px -12px rgba(34,245,214,.7), 0 14px 34px -14px rgba(0,0,0,.8)}
+.floorlabel b{font-family:Unbounded;font-weight:500;font-size:var(--t-h3);letter-spacing:-.01em;white-space:nowrap}
+.floorlabel span{font-family:Exo2;font-size:var(--t-micro);letter-spacing:.2em;
+  text-transform:uppercase;color:var(--dim)}
+
+/* ступени спирали */
+.steplabel{display:inline-flex;padding:calc(var(--k)*8px) calc(var(--k)*20px);border-radius:999px;
+  background:linear-gradient(168deg, rgba(31,48,78,.88), rgba(9,15,27,.94));
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 14px 34px -16px rgba(0,0,0,.85)}
+.steplabel b{font-family:Unbounded;font-weight:500;font-size:var(--t-lead);white-space:nowrap}
+.steplabel.low{border-color:rgba(61,125,255,.45);box-shadow:0 0 30px -12px rgba(61,125,255,.8)}
+.steplabel.mid{border-color:rgba(34,245,214,.45);box-shadow:0 0 30px -12px rgba(34,245,214,.8)}
+.steplabel.high{border-color:rgba(255,255,255,.5);box-shadow:0 0 34px -10px rgba(255,255,255,.7)}
+
+/* ============================================================
+   НОВЫЕ РАСКЛАДКИ
+   ============================================================ */
+/* утверждение по центру кадра — на нём держится развилка 3 */
+.claim{padding:calc(var(--k)*26px) calc(var(--k)*34px);border-radius:calc(var(--k)*18px);
+  display:flex;flex-direction:column;gap:var(--s3);width:calc(var(--k)*470px)}
+.claim p{margin:0}
+
+/* кейс: текст с одной стороны, две карточки с другой */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:calc(var(--k)*22px);align-items:start}
+.duo .shot{display:flex;flex-direction:column;height:100%}
+.duo .plate{flex:1}
+.duo .caption{margin-top:auto}
+.slide[data-layout="case"] .pin[data-w="case-text"]{width:calc(var(--k)*560px)}
+.slide[data-layout="case"] .pin[data-w="case-shot"]{width:calc(var(--k)*520px)}
+
+/* этаж: список слева или справа, сетка скриншотов напротив */
+.slide[data-layout="floor"] .pin[data-w="floor-list"]{width:calc(var(--k)*420px)}
+.slide[data-layout="floor"] .pin[data-w="floor-shots"]{width:calc(var(--k)*740px)}
+.shotgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(var(--k)*18px)}
+.shotgrid.five{grid-template-columns:repeat(3,1fr)}
+.shotgrid.four{grid-template-columns:repeat(3,1fr)}
+.shotgrid.four{grid-template-columns:repeat(2,1fr)}
+.shotgrid .plate{aspect-ratio:16/10;width:100%;
+  background:linear-gradient(168deg, rgba(18,28,48,.9), rgba(8,13,24,.95))}
+.shotgrid .plate img{object-fit:contain;padding:calc(var(--k)*6px)}
+.shotgrid .caption{padding-top:calc(var(--k)*8px)}
+.shotgrid .caption b{font-size:var(--t-micro);font-family:Manrope;font-weight:700;
+  letter-spacing:0;text-transform:none;line-height:1.3}
+
+/* маркер списка справа — зеркальный */
+.bullets.right li{grid-template-columns:1fr auto;text-align:right}
+.bullets.right li .mk{background:linear-gradient(270deg,var(--mint),transparent);transform-origin:right center}
+.t-kicker.right{flex-direction:row-reverse}
+.t-kicker.right::before{background:linear-gradient(270deg, transparent, var(--mint))}
+.t-kicker.center{justify-content:center}
+
+/* push/pull: три доказательства в ряд */
+.trio.evidence{grid-template-columns:repeat(3,1fr);align-items:start}
+.trio.evidence .shot{display:flex;flex-direction:column;height:100%}
+.trio.evidence .plate{flex:1;display:grid;place-content:center}
+.trio.evidence .caption{margin-top:auto}
+.slide[data-layout="fork-y"] .pin[data-w="pull-row"]{width:calc(var(--k)*820px)}
+.slide[data-layout="fork-y"] .pin[data-w="mid-claim"]{width:calc(var(--k)*470px)}
+.t-quote.center{text-align:center;max-width:calc(var(--k)*760px)}
+
+/* финал и QR */
+.slide[data-layout="final"] .pin[data-w="final-text"]{width:calc(var(--k)*860px)}
+.qrwrap{display:flex;flex-direction:column;align-items:center;gap:var(--s5)}
+.qrplate{width:calc(var(--k)*300px);height:calc(var(--k)*300px);display:grid;place-content:center;
+  padding:calc(var(--k)*26px);border-radius:calc(var(--k)*24px);
+  background:linear-gradient(168deg, rgba(31,48,78,.55), rgba(9,15,27,.75));
+  border:1px solid rgba(34,245,214,.26);
+  box-shadow:0 0 70px -20px rgba(34,245,214,.65), 0 30px 70px -30px rgba(0,0,0,.9)}
+.qrplate img{width:100%;height:100%;object-fit:contain;
+  filter:drop-shadow(0 0 14px rgba(34,245,214,.55))}
+
+/* поворотные сцены: текст один, кадр держит движение */
+.slide[data-layout="turn"] .pin[data-w="axes-text"]{width:calc(var(--k)*760px)}
+.slide[data-layout="spiral"] .pin[data-w="axes-text"]{width:calc(var(--k)*560px)}
+
+/* ============================================================
+   КРУГ 6
+   ============================================================ */
+/* подпись функции на повороте к оси Z — призрак будущего этажа */
+.fnlabel{display:inline-flex;padding:calc(var(--k)*7px) calc(var(--k)*16px);border-radius:999px;
+  background:linear-gradient(168deg, rgba(31,48,78,.55), rgba(9,15,27,.72));
+  border:1px dashed rgba(34,245,214,.32)}
+.fnlabel b{font-family:Manrope;font-weight:700;font-size:var(--t-label);
+  letter-spacing:.02em;color:var(--muted);white-space:nowrap}
+
+/* скриншоты решений: крупнее и контрастнее — они доказательство,
+   а не фактура. Мелкими и серыми они читались штампами. */
+.slide[data-layout="floor"] .pin[data-w="floor-shots"]{width:calc(var(--k)*880px)}
+.shotgrid{gap:calc(var(--k)*20px)}
+.shotgrid .plate img{filter:saturate(1.0) contrast(1.12) brightness(1.10)}
+.shotgrid .plate{box-shadow:
+     0 1px 0 rgba(255,255,255,.10) inset,
+     0 0 0 1px rgba(34,245,214,.16) inset,
+     0 0 44px -16px rgba(34,245,214,.40),
+     0 16px 40px -14px rgba(0,0,0,.70),
+     0 50px 100px -44px rgba(0,0,0,.85)}
+.shotgrid .plate .deep{
+  background:radial-gradient(118% 92% at 50% 42%, transparent 58%, rgba(4,7,14,.14) 86%, rgba(4,7,14,.30) 100%)}
+.shotgrid .caption b{font-size:calc(var(--k)*12px)}
+
+/* ============================================================
+   КРУГ 7
+   ============================================================ */
+/* 6. Луч не должен резать строку. Под повествованием — мягкая
+   тёмная подложка: геометрия за ней видна, но текст держится. */
+#stage .slide .pin > *{position:relative}
+#stage .slide .pin::before{content:"";position:absolute;
+  inset:calc(var(--k) * -34px) calc(var(--k) * -44px);
+  background:radial-gradient(60% 62% at 50% 50%, rgba(4,7,14,.82), rgba(4,7,14,.45) 62%, transparent 82%);
+  filter:blur(calc(var(--k) * 12px));pointer-events:none;z-index:-1}
+/* у карточек своя глубина, подложка им не нужна */
+#stage .slide .pin[data-w="floor-shots"]::before,
+#stage .slide .pin[data-w="case-shot"]::before,
+#stage .slide .pin[data-w="pull-row"]::before,
+#stage .slide .pin[data-w="cover-portrait"]::before,
+#stage .slide .pin[data-w="qr-block"]::before{display:none}
+
+/* 10. Служебная обвязка прячется: на экране форума подсказка
+   про стрелки и пробел выдаёт веб-страницу. Возвращается,
+   только когда к презентации прикасаются. */
+#hud{opacity:0;transition:opacity .5s var(--ease)}
+body[data-touch="1"] #hud{opacity:1}
+#hud .hint{display:none}
+
+/* 12. QR на светлой подложке: инверсный бирюзовый рискует
+   не считаться половиной зала. */
+.qrplate{background:linear-gradient(168deg, #F2F7F8, #DCE8EA);
+  border:1px solid rgba(34,245,214,.5)}
+.qrplate img{filter:invert(1) brightness(.18) saturate(0) contrast(1.6);
+  mix-blend-mode:multiply}
+.slide[data-layout="qr"] .pin[data-w="qr-block"]{width:calc(var(--k)*620px)}
+.qrwrap{gap:var(--s6)}
+
+/* ============================================================
+   КРУГ 8
+   ============================================================ */
+/* 2. Регресс contain: карточка была на две трети пустой.
+   Высоту задаёт сам кадр — нет ни обрезки, ни полей. */
+/* Все снимки приведены к горизонтали, поэтому сетка снова единая:
+   одна пропорция на все карточки, кадр вписывается целиком. */
+.shotgrid{align-items:start}
+.shotgrid .plate{aspect-ratio:16/9;height:auto}
+.shotgrid .plate img{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:contain;padding:calc(var(--k)*5px)}
+
+/* 5. Пять функций как нумерованный столбец: сверху вниз, как этажи */
+.slide[data-layout="turn"] .pin[data-w="fn-list"]{width:calc(var(--k)*300px)}
+ol.floors{list-style:none;display:flex;flex-direction:column;gap:calc(var(--k)*10px)}
+ol.floors li{display:grid;grid-template-columns:auto 1fr;gap:var(--s3);align-items:baseline;
+  padding:calc(var(--k)*9px) calc(var(--k)*16px);border-radius:calc(var(--k)*12px);
+  background:linear-gradient(168deg, rgba(31,48,78,.52), rgba(9,15,27,.62));
+  border:1px solid rgba(34,245,214,.16)}
+ol.floors li b{font-family:Exo2;font-weight:600;font-size:var(--t-label);color:var(--mint);
+  letter-spacing:.06em}
+ol.floors li span{font-family:Manrope;font-weight:600;font-size:var(--t-body);color:var(--ink)}
+
+/* 6. Кейсы шире, раз колонки сведены к центру */
+.slide[data-layout="case"] .pin[data-w="case-text"]{width:calc(var(--k)*640px)}
+.slide[data-layout="case"] .pin[data-w="case-shot"]{width:calc(var(--k)*600px)}
+
+/* 7. Архивные снимки уводятся в тональность колоды и не спорят
+   с остальным кадром. Содержание не меняется — только обработка. */
+.plate.archive img{filter:saturate(.34) contrast(1.06) brightness(.92)
+  sepia(.18) hue-rotate(150deg)}
+.plate.archive::after{content:"";position:absolute;inset:0;border-radius:inherit;
+  pointer-events:none;
+  background:radial-gradient(110% 90% at 50% 45%, transparent 52%, rgba(4,7,14,.45) 100%)}
+
+/* 8. Логотип ESSG должен читаться, иначе он хуже, чем его отсутствие */
+.logomark.bare img{height:clamp(24px, calc(var(--k) * 34px), 46px)}
+.slide[data-layout="qr"] .logomark.bare img{height:calc(var(--k) * 52px)}
+.slide[data-layout="cover"] .logomark.bare img{height:calc(var(--k) * 40px)}
